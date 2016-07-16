@@ -44,16 +44,17 @@ listLights token = do
 
 toggleLights :: ByteString -> String -> IO (Network.HTTP.Simple.Response LChar.ByteString)
 toggleLights token selector =
-  httpLifx token "POST" ("lights/" ++ selector ++ "/toggle") body
+  httpLifx body token "POST" $ "lights/" ++ selector ++ "/toggle"
     where body = "{\"duration\": \"0.0\"}"
 
 
 httpLifx' :: ByteString -> BS.ByteString -> String -> IO (Network.HTTP.Simple.Response LChar.ByteString)
-httpLifx' token method urlSuffix = httpLifx token method urlSuffix ""
+httpLifx' = httpLifx ""
 
 
-httpLifx :: ByteString -> BS.ByteString -> String -> ByteString -> IO (Network.HTTP.Simple.Response LChar.ByteString)
-httpLifx token method urlSuffix body = do
+httpLifx :: ByteString -> ByteString -> BS.ByteString -> String ->
+            IO (Network.HTTP.Simple.Response LChar.ByteString)
+httpLifx body token method urlSuffix = do
     let request = setRequestMethod method
           $ Network.HTTP.Simple.setRequestBody (RequestBodyBS body)
           $ setRequestHeader "Authorization"
