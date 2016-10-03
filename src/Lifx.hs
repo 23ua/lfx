@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lifx where
@@ -6,53 +6,93 @@ module Lifx where
 
 import           Data.Aeson
 import           Data.Aeson.Types
-import           Data.ByteString            as BS
+import           Data.Aeson.TH ( defaultOptions
+                               , deriveToJSON
+                               , deriveFromJSON
+                               , omitNothingFields
+                               )
+import           Data.ByteString            as BS (ByteString, append)
 import qualified Data.ByteString.Lazy.Char8 as LChar
-import           GHC.Generics
+import qualified Data.ByteString.Lazy.Char8 as LByteStr
+import qualified Lifx.State as LState
 import           Network.HTTP
 import           Network.HTTP.Conduit
 import           Network.HTTP.Simple
 
 
 
-data LifxLight = LifxLight {
+data Light = Light {
       id         :: String
     , label      :: String
     , connected  :: Bool
     , power      :: String
     , color      :: Color
     , brightness :: Double
-    } deriving (Generic, Show)
+    } deriving (Show)
 
 
 data Color = Color {
       hue        :: Double
     , saturation :: Double
     , kelvin     :: Integer
-} deriving (Generic, Show)
+} deriving (Show)
+
+data SetStates = SetStates {
+      states     :: [LState.State]
+    , defaults   :: Maybe LState.State
+} deriving (Show)
+
+type Token = ByteString
+type LifxSelector = String
+
+-- derive aeson instances
+concat <$> mapM (deriveFromJSON defaultOptions) [''Color, ''Light]
+deriveToJSON defaultOptions { omitNothingFields = True } ''SetStates
 
 
-instance FromJSON Color
-instance FromJSON LifxLight
-
-
-listLights :: ByteString -> IO (Either String [LifxLight])
-listLights token = do
-    response <- httpLifx' token "GET" "lights/all"
+listLights :: Token -> LifxSelector -> IO (Either String [Light])
+listLights token selector = do
+    response <- httpLifx' token "GET" $ "lights/" ++ selector
     return $ eitherDecode $ Network.HTTP.Simple.getResponseBody response
 
 
-toggleLights :: ByteString -> String -> IO (Network.HTTP.Simple.Response LChar.ByteString)
+toggleLights :: Token -> LifxSelector -> IO (Network.HTTP.Simple.Response LChar.ByteString)
 toggleLights token selector =
-  httpLifx body token "POST" $ "lights/" ++ selector ++ "/toggle"
-    where body = "{\"duration\": \"0.0\"}"
+    httpLifx body token "POST" $ "lights/" ++ selector ++ "/toggle"
+        where body = "{\"duration\": \"0.0\"}"
 
+
+changeBrightness :: Token -> LifxSelector -> Double -> IO ()
+changeBrightness token selector value = do
+    Right lights <- listLights token selector
+    let newLights = map (\x -> x {brightness = brightness x + value / 100}) lights
+    let states = map setBrightness' newLights
+    let setStates = SetStates { defaults = Nothing
+                              , states = states
+                              }
+    httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
+    -- TODO: return pretty request result
+    return ()
+
+
+setBrightness' :: Light -> LState.State
+setBrightness' = setBrightness LState.defaultState
+
+setBrightness :: LState.State -> Light -> LState.State
+setBrightness state light@Light {brightness = brightness} =
+    state { LState.selector = Just $ selectorFromLight light
+          , LState.brightness = Just brightness
+          }
+
+selectorFromLight :: Light -> LifxSelector
+selectorFromLight =
+    ("id:"++) . Lifx.id
 
 httpLifx' :: ByteString -> BS.ByteString -> String -> IO (Network.HTTP.Simple.Response LChar.ByteString)
 httpLifx' = httpLifx ""
 
 
-httpLifx :: ByteString -> ByteString -> BS.ByteString -> String ->
+httpLifx :: ByteString -> Token -> BS.ByteString -> String ->
             IO (Network.HTTP.Simple.Response LChar.ByteString)
 httpLifx body token method urlSuffix = do
     let request = setRequestMethod method
