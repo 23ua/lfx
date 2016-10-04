@@ -61,6 +61,20 @@ toggleLights token selector =
     httpLifx body token "POST" $ "lights/" ++ selector ++ "/toggle"
         where body = "{\"duration\": \"0.0\"}"
 
+changePower :: Token -> LifxSelector -> String -> IO ()
+changePower token selector newPower = do
+    Right lights <- listLights token selector
+    let states = map (setPower newPower) lights
+    setStates token states
+    return ()
+
+
+setPower :: String -> Light -> LState.State
+setPower newPower light =
+    LState.defaultState { LState.power    = Just newPower
+                        , LState.selector = Just $ selectorFromLight light
+                        }
+
 
 changeBrightness :: Token -> LifxSelector -> Double -> IO ()
 changeBrightness token selector value = do
@@ -73,6 +87,13 @@ changeBrightness token selector value = do
     httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
     -- TODO: return pretty request result
     return ()
+
+setStates token states =
+    let setStates = SetStates { defaults = Nothing
+                              , states = states
+                              }
+    in httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
+
 
 
 setBrightness' :: Light -> LState.State

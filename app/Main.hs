@@ -31,12 +31,20 @@ main = do
       (["toggle", selector], Just token) -> do
           toggleLights token selector
           putStrLn $ "toggle " ++ selector ++ " :: ok"
+      (["on"], Just token) ->
+          changePower token "all" "on"
+      (["on", selector], Just token) ->
+          changePower token selector "on"
+      (["off"], Just token) ->
+          changePower token "all" "off"
+      (["off", selector], Just token) ->
+          changePower token selector "off"
       (["+", percent], Just token) ->
           changeBrightness token "all" $ read percent
       (["-", percent], Just token) ->
           changeBrightness token "all" $ (negate . read) percent
       _ -> do
-          hPutStrLn stderr $ "usage: " ++ name ++ " [ls | toggle :selector | + :percent | - :percent]"
+          hPutStrLn stderr $ "usage: " ++ name ++ " [ls | toggle :selector | + :percent | - :percent | on | off]"
           exitFailure
 
 lifxToken :: IO (Maybe BS.ByteString)
