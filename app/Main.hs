@@ -24,7 +24,7 @@ main = do
           hPutStrLn stderr $ "You need to set token first: " ++ name ++ " token <token>"
       (["ls"], Just token) -> do
           Right lights <- listLights token "all"
-          mapM_ (\x -> putStrLn $ Lifx.id x ++ " :: " ++ label x) lights
+          mapM_ (putStrLn . formatLight) lights
       (["toggle"], Just token) -> do
               toggleLights token "all"
               putStrLn "toggle all :: ok"
@@ -44,3 +44,12 @@ lifxToken = do
       home <- getHomeDirectory
       token <- tryIOError $ BS.readFile $ home ++ "/.lfxtoken"
       return $ either (const Nothing) Just token
+
+
+formatLight :: Light -> String
+formatLight x =
+    Lifx.id x ++ " :: " ++ label x ++ " :: " ++ formatBrightness x
+
+formatBrightness :: Light -> String
+formatBrightness =
+    (++"%") . show . round . (*100) . brightness
