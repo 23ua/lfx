@@ -43,6 +43,10 @@ main = do
           changeBrightness token "all" $ read percent
       (["-", percent], Just token) ->
           changeBrightness token "all" $ (negate . read) percent
+      (["+", percent, selector], Just token) ->
+          changeBrightness token selector $ read percent
+      (["-", percent, selector], Just token) ->
+          changeBrightness token selector $ (negate . read) percent
       _ -> do
           hPutStrLn stderr $ "usage: " ++ name ++ " [ls | toggle :selector | + :percent | - :percent | on | off]"
           exitFailure
