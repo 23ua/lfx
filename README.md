@@ -8,7 +8,7 @@ usage: lfx [ls | toggle :selector | + :percent | - :percent | on | off]
 ```
 
 # Configure:
-To manage your lights you need to [generate](https://cloud.lifx.com/settings) and set lifx token:
+To manage your lights you need to [generate](https://cloud.lifx.com/settings) and set lifx token first:
 ```bash
 $ lfx token <YOUR_TOKEN_HERE>
 LIFX token written to ~/.lfxtoken
