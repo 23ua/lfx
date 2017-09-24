@@ -60,7 +60,7 @@ lifxToken = do
 
 formatLight :: Light -> String
 formatLight x =
-    Lifx.id x ++ " :: " ++ label x ++ " :: " ++ formatBrightness x
+    Lifx.id x ++ " :: " ++ label x ++ " :: " ++ Lifx.power x ++ " :: " ++ formatBrightness x
 
 formatBrightness :: Light -> String
 formatBrightness =
