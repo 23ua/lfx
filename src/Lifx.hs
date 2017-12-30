@@ -80,13 +80,27 @@ changeBrightness :: Token -> LifxSelector -> Double -> IO ()
 changeBrightness token selector value = do
     Right lights <- listLights token selector
     let newLights = map (\x -> x {brightness = brightness x + value / 100}) lights
-    let states = map setBrightness' newLights
+    let states = map setBrightness'' newLights
     let setStates = SetStates { defaults = Nothing
                               , states = states
                               }
     httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
     -- TODO: return pretty request result
     return ()
+
+
+setBrightness :: Token -> LifxSelector -> Double -> IO ()
+setBrightness token selector value = do
+    Right lights <- listLights token selector
+    let newLights = map (\x -> x {brightness = value / 100}) lights
+    let states = map setBrightness'' newLights
+    let setStates = SetStates { defaults = Nothing
+                              , states = states
+                              }
+    httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
+    -- TODO: return pretty request result
+    return ()
+
 
 setStates token states =
     let setStates = SetStates { defaults = Nothing
@@ -96,11 +110,11 @@ setStates token states =
 
 
 
-setBrightness' :: Light -> LState.State
-setBrightness' = setBrightness LState.defaultState
+setBrightness'' :: Light -> LState.State
+setBrightness'' = setBrightness' LState.defaultState
 
-setBrightness :: LState.State -> Light -> LState.State
-setBrightness state light@Light {brightness = brightness} =
+setBrightness' :: LState.State -> Light -> LState.State
+setBrightness' state light@Light {brightness = brightness} =
     state { LState.selector = Just $ selectorFromLight light
           , LState.brightness = Just brightness
           }

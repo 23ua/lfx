@@ -49,6 +49,15 @@ $ lfx + 10
 $ lfx - 5
 ```
 
+#### Set lights brightness:
+```bash
+# Set to 10%
+$ lfx 10
+
+# Set to 100%
+$ lfx 100
+```
+
 #### On/off lights:
 ```bash
 # on/off all lights:

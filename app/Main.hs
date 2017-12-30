@@ -47,8 +47,10 @@ main = do
           changeBrightness token selector $ read percent
       (["-", percent, selector], Just token) ->
           changeBrightness token selector $ (negate . read) percent
+      ([percent], Just token) ->
+          setBrightness token "all" $ read percent
       _ -> do
-          hPutStrLn stderr $ "usage: " ++ name ++ " [ls | toggle :selector | + :percent | - :percent | on | off]"
+          hPutStrLn stderr $ "usage: " ++ name ++ " [ls | toggle :selector | + :percent | - :percent | :percent | on | off]"
           exitFailure
 
 lifxToken :: IO (Maybe BS.ByteString)
