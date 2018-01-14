@@ -4,7 +4,22 @@ LIFX cli tool written in Haskell
 # Usage:
 
 ```bash
-usage: lfx [ls | toggle :selector | + :percent | - :percent | on | off]
+Usage: lfx [-s|--selector SELECTOR] COMMAND
+  You can control your lights via lan protocol or via internet
+
+Available options:
+  -s,--selector SELECTOR   Apply command to lights matching the SELECTOR
+  -h,--help                Show this help text
+
+Available commands:
+  on                       Turn on the lights
+  off                      Turn off the lights
+  toggle                   Toggle the lights
+  ls                       List the lights
+  brightness               Set the brightness of the lights
+  +                        Increase the brightness of the lights by PERCENT
+  -                        Decrease the brightness of the lights by PERCENT
+  token                    Set the LIFX token
 ```
 
 # Configure:
@@ -52,10 +67,10 @@ $ lfx - 5
 #### Set lights brightness:
 ```bash
 # Set to 10%
-$ lfx 10
+$ lfx brightness 10
 
 # Set to 100%
-$ lfx 100
+$ lfx brightness 100
 ```
 
 #### On/off lights:

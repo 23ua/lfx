@@ -5,17 +5,13 @@ module Lifx where
 
 
 import           Data.Aeson
-import           Data.Aeson.Types
-import           Data.Aeson.TH ( defaultOptions
-                               , deriveToJSON
+import           Data.Aeson.TH ( deriveToJSON
                                , deriveFromJSON
-                               , omitNothingFields
                                )
 import           Data.ByteString            as BS (ByteString, append)
 import qualified Data.ByteString.Lazy.Char8 as LChar
-import qualified Data.ByteString.Lazy.Char8 as LByteStr
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Lifx.State as LState
-import           Network.HTTP
 import           Network.HTTP.Conduit
 import           Network.HTTP.Simple
 
@@ -64,8 +60,8 @@ toggleLights token selector =
 changePower :: Token -> LifxSelector -> String -> IO ()
 changePower token selector newPower = do
     Right lights <- listLights token selector
-    let states = map (setPower newPower) lights
-    setStates token states
+    let states' = map (setPower newPower) lights
+    _ <- setStates token states'
     return ()
 
 
@@ -76,37 +72,37 @@ setPower newPower light =
                         }
 
 
-changeBrightness :: Token -> LifxSelector -> Double -> IO ()
+changeBrightness :: Integral a => Token -> LifxSelector -> a -> IO ()
 changeBrightness token selector value = do
     Right lights <- listLights token selector
-    let newLights = map (\x -> x {brightness = brightness x + value / 100}) lights
-    let states = map setBrightness'' newLights
-    let setStates = SetStates { defaults = Nothing
-                              , states = states
+    let newLights = map (\x -> x {brightness = brightness x + fromIntegral value / 100}) lights
+    let states' = map setBrightness'' newLights
+    let newStates = SetStates { defaults = Nothing
+                              , states = states'
                               }
-    httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
+    _ <- httpLifx (LBS.toStrict . encode $ newStates) token "PUT" "lights/states"
     -- TODO: return pretty request result
     return ()
 
 
-setBrightness :: Token -> LifxSelector -> Double -> IO ()
+setBrightness :: Integral a => Token -> LifxSelector -> a -> IO ()
 setBrightness token selector value = do
     Right lights <- listLights token selector
-    let newLights = map (\x -> x {brightness = value / 100}) lights
-    let states = map setBrightness'' newLights
-    let setStates = SetStates { defaults = Nothing
-                              , states = states
+    let newLights = map (\x -> x {brightness = fromIntegral value / 100}) lights
+    let states' = map setBrightness'' newLights
+    let newStates = SetStates { defaults = Nothing
+                              , states = states'
                               }
-    httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
+    _ <- httpLifx (LBS.toStrict . encode $ newStates) token "PUT" "lights/states"
     -- TODO: return pretty request result
     return ()
 
-
-setStates token states =
-    let setStates = SetStates { defaults = Nothing
-                              , states = states
+setStates :: Token -> [LState.State] -> IO (Response LBS.ByteString)
+setStates token states' =
+    let newStates = SetStates { defaults = Nothing
+                              , states = states'
                               }
-    in httpLifx (LByteStr.toStrict . encode $ setStates) token "PUT" "lights/states"
+    in httpLifx (LBS.toStrict . encode $ newStates) token "PUT" "lights/states"
 
 
 
@@ -114,9 +110,9 @@ setBrightness'' :: Light -> LState.State
 setBrightness'' = setBrightness' LState.defaultState
 
 setBrightness' :: LState.State -> Light -> LState.State
-setBrightness' state light@Light {brightness = brightness} =
+setBrightness' state light@Light {brightness = brightness'} =
     state { LState.selector = Just $ selectorFromLight light
-          , LState.brightness = Just brightness
+          , LState.brightness = Just brightness'
           }
 
 selectorFromLight :: Light -> LifxSelector
@@ -129,8 +125,8 @@ httpLifx' = httpLifx ""
 
 httpLifx :: ByteString -> Token -> BS.ByteString -> String ->
             IO (Network.HTTP.Simple.Response LChar.ByteString)
-httpLifx body token method urlSuffix = do
-    let request = setRequestMethod method
+httpLifx body token method' urlSuffix = do
+    let request = setRequestMethod method'
           $ Network.HTTP.Simple.setRequestBody (RequestBodyBS body)
           $ setRequestHeader "Authorization"
           ["Bearer " `append` token]

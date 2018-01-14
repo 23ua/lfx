@@ -1,64 +1,109 @@
 module Main where
 
-import           Control.Arrow
+import           Control.Monad (void)
+import           Data.Semigroup ((<>))
 import           Lifx
+import           Lifx.Command
 import           System.Directory
-import           System.Environment (getArgs, getProgName)
-import           System.Exit        (exitFailure)
+import           System.Environment (getProgName)
 import           System.IO          (hPutStrLn, stderr)
 import           System.IO.Error    (tryIOError)
-import           Data.ByteString   as BS (ByteString, readFile)
+import           Data.ByteString   as BS (readFile, writeFile)
+import Options.Applicative
 
 
 main :: IO ()
-main = do
-  args <- getArgs
-  lfxtoken <- lifxToken
-  name <- getProgName
-  case (args, lfxtoken) of
-      (["token", lfxtoken], _) -> do
-          home <- getHomeDirectory
-          writeFile (home ++ "/.lfxtoken") lfxtoken
-          putStrLn "LIFX token written to ~/.lfxtoken"
-      (_, Nothing) ->
-          hPutStrLn stderr $ "You need to set token first: " ++ name ++ " token <token>"
-      (["ls"], Just token) -> do
-          Right lights <- listLights token "all"
-          mapM_ (putStrLn . formatLight) lights
-      (["toggle"], Just token) -> do
-              toggleLights token "all"
-              putStrLn "toggle all :: ok"
-      (["toggle", selector], Just token) -> do
-          toggleLights token selector
-          putStrLn $ "toggle " ++ selector ++ " :: ok"
-      (["on"], Just token) ->
-          changePower token "all" "on"
-      (["on", selector], Just token) ->
-          changePower token selector "on"
-      (["off"], Just token) ->
-          changePower token "all" "off"
-      (["off", selector], Just token) ->
-          changePower token selector "off"
-      (["+", percent], Just token) ->
-          changeBrightness token "all" $ read percent
-      (["-", percent], Just token) ->
-          changeBrightness token "all" $ (negate . read) percent
-      (["+", percent, selector], Just token) ->
-          changeBrightness token selector $ read percent
-      (["-", percent, selector], Just token) ->
-          changeBrightness token selector $ (negate . read) percent
-      ([percent], Just token) ->
-          setBrightness token "all" $ read percent
-      _ -> do
-          hPutStrLn stderr $ "usage: " ++ name ++ " [ls | toggle :selector | + :percent | - :percent | :percent | on | off]"
-          exitFailure
+main = handle' =<< customExecParser (prefs showHelpOnError) opts
+    where
+        opts = info (lfxParser <**> helper)
+            ( fullDesc
+            <> progDesc "You can control your lights via lan protocol or via internet"
+            <> header "lfx -- cli-tool to control your LIFX smart lights"
+            )
 
-lifxToken :: IO (Maybe BS.ByteString)
+lfxParser :: Parser Opts
+lfxParser = Opts <$>
+    strOption
+        ( long "selector"
+            <> short 's'
+            <> metavar "SELECTOR"
+            <> value "all"
+            <> help "Apply command to lights matching the SELECTOR"
+        )
+    <*> subparser
+        ( command "on" (info (pure On) ( progDesc "Turn on the lights" ))
+            <> command "off" (info (pure Off) ( progDesc "Turn off the lights" ))
+            <> command "toggle" (info (pure Toggle) ( progDesc "Toggle the lights" ))
+            <> command "ls" (info (pure Ls) ( progDesc "List the lights" ))
+            <> command "brightness" (info brightnessOpt ( progDesc "Set the brightness of the lights" ))
+            <> command "+" (info incrBrightnessOpt ( progDesc "Increase the brightness of the lights by PERCENT"))
+            <> command "-" (info decrBrightnessOpt ( progDesc "Decrease the brightness of the lights by PERCENT"))
+            <> command "token" (info setTokenOpt ( progDesc "Set the LIFX token"))
+        )
+
+brightnessOpt :: Parser Cmd
+brightnessOpt = Brightness <$> argument auto (metavar "BRIGHTNESS_LEVEL")
+
+incrBrightnessOpt :: Parser Cmd
+incrBrightnessOpt = IncrBrightness <$> argument auto (metavar "PERCENT")
+
+decrBrightnessOpt :: Parser Cmd
+decrBrightnessOpt = DecrBrightness <$> argument auto (metavar "PERCENT")
+
+setTokenOpt :: Parser Cmd
+setTokenOpt = SetToken <$> argument str (metavar "TOKEN")
+
+handle' :: Opts -> IO ()
+handle' opts = do
+    lfxtoken <- lifxToken
+    name <- getProgName
+    case (lfxtoken, opts) of
+        (Just token, _) -> handle opts token
+        (Nothing, Opts {optCmd = SetToken token} ) -> setToken token
+        (Nothing, _) -> hPutStrLn stderr $ "You need to set token first with:\n" ++ name ++ " token TOKEN"
+
+handle :: Opts -> LfxToken -> IO()
+handle Opts { optCmd = On, optSelector = selector } token
+    = changePower token selector "on"
+
+handle Opts { optCmd = Off, optSelector = selector } token
+    = changePower token selector "off"
+
+handle Opts { optCmd = Toggle, optSelector = selector } token
+    = void $ toggleLights token selector
+
+handle Opts { optCmd = Ls, optSelector = selector } token = do
+    Right lights <- listLights token selector
+    mapM_ (putStrLn . formatLight) lights
+
+handle Opts { optCmd = (Brightness percent), optSelector = selector } token
+    = setBrightness token selector percent
+
+handle Opts { optCmd = (SetToken newToken) } _oldToken
+    = setToken newToken
+
+handle Opts { optCmd = (IncrBrightness percent), optSelector = selector } token
+    = changeBrightness token selector percent
+
+handle Opts { optCmd = (DecrBrightness percent), optSelector = selector } token
+    = changeBrightness token selector $ negate percent
+
+data Opts =
+    Opts { optSelector :: String
+         , optCmd :: Cmd
+         }
+
+setToken :: LfxToken -> IO ()
+setToken lfxtoken = do
+    home <- getHomeDirectory
+    BS.writeFile (home ++ "/.lfxtoken") lfxtoken
+    putStrLn "LIFX token written to ~/.lfxtoken"
+
+lifxToken :: IO (Maybe LfxToken)
 lifxToken = do
       home <- getHomeDirectory
       token <- tryIOError $ BS.readFile $ home ++ "/.lfxtoken"
       return $ either (const Nothing) Just token
-
 
 formatLight :: Light -> String
 formatLight x =
