@@ -38,6 +38,7 @@ lfxParser = Opts <$>
             <> command "brightness" (info brightnessOpt ( progDesc "Set the brightness of the lights" ))
             <> command "+" (info incrBrightnessOpt ( progDesc "Increase the brightness of the lights by PERCENT"))
             <> command "-" (info decrBrightnessOpt ( progDesc "Decrease the brightness of the lights by PERCENT"))
+            <> command "color" (info colorOpt ( progDesc "Set COLOR for the lights"))
             <> command "token" (info setTokenOpt ( progDesc "Set the LIFX token"))
         )
 
@@ -49,6 +50,9 @@ incrBrightnessOpt = IncrBrightness <$> argument auto (metavar "PERCENT")
 
 decrBrightnessOpt :: Parser Cmd
 decrBrightnessOpt = DecrBrightness <$> argument auto (metavar "PERCENT")
+
+colorOpt :: Parser Cmd
+colorOpt = Lifx.Command.Color <$> argument str (metavar "COLOR")
 
 setTokenOpt :: Parser Cmd
 setTokenOpt = SetToken <$> argument str (metavar "TOKEN")
@@ -87,6 +91,9 @@ handle Opts { optCmd = (IncrBrightness percent), optSelector = selector } token
 
 handle Opts { optCmd = (DecrBrightness percent), optSelector = selector } token
     = changeBrightness token selector $ negate percent
+
+handle Opts { optCmd = (Lifx.Command.Color newColor), optSelector = selector } token
+    = setColor token selector newColor
 
 data Opts =
     Opts { optSelector :: String

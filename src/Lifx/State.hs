@@ -13,7 +13,7 @@ import           Data.Aeson.TH (defaultOptions, deriveToJSON, omitNothingFields)
 data State = State {
       selector :: Maybe String
     , power :: Maybe String
-    , color :: Maybe Double
+    , color :: Maybe String
     , brightness :: Maybe Double
     , duration :: Maybe Double
 } deriving (Show)

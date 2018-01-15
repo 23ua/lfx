@@ -10,6 +10,7 @@ data Cmd
     | Brightness Integer
     | IncrBrightness Integer
     | DecrBrightness Integer
+    | Color String
     | SetToken LfxToken
 
 type LfxToken = BS.ByteString

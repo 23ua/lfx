@@ -19,6 +19,7 @@ Available commands:
   brightness               Set the brightness of the lights
   +                        Increase the brightness of the lights by PERCENT
   -                        Decrease the brightness of the lights by PERCENT
+  color                    Set COLOR for the lights
   token                    Set the LIFX token
 ```
 
@@ -91,4 +92,9 @@ $ lfx on d071d1142312
 $ lfx toggle
 $ lfx toggle label:Bedroom
 $ lfx toggle d071d1142312
+```
+
+#### Set color:
+```bash
+$ lfx color red
 ```

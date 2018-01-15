@@ -85,6 +85,23 @@ changeBrightness token selector value = do
     return ()
 
 
+setColor :: Token -> LifxSelector -> String -> IO ()
+setColor token selector newColor = do
+    Right lights <- listLights token selector
+    let states' = map (setColor' newColor) lights
+    let newStates = SetStates { defaults = Nothing
+                              , states = states'
+                              }
+    _ <- httpLifx (LBS.toStrict . encode $ newStates) token "PUT" "lights/states"
+    -- TODO: return pretty request result
+    return ()
+
+setColor' :: String -> Light -> LState.State
+setColor' newColor light =
+    LState.defaultState { LState.color    = Just newColor
+                        , LState.selector = Just $ selectorFromLight light
+                        }
+
 setBrightness :: Integral a => Token -> LifxSelector -> a -> IO ()
 setBrightness token selector value = do
     Right lights <- listLights token selector
